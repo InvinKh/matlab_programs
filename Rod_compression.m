@@ -688,6 +688,151 @@ tic
 [a_arr1, fmin1]= fmincon(optfunc,work_arr,[],[],Aeq,beq, [],[],[],options);
 toc
 
+
+%% Time/accuracy
+for N=4:7
+for X=50:50:300
+
+elastic_arr = zeros(N, N, N, 3);
+% dom_arr = rand(N, N, N, 3);
+dom_arr = zeros(N, N, N, 3);
+work_arr = zeros(N, N, N, 6);
+work_arr(:, :, :, 1:3) = elastic_arr;
+work_arr(:, :, :, 4:6) = dom_arr;
+
+opt_arr = reshape(work_arr, [1, 6*N*N*N]);
+
+L = 1;
+dx = L/N;
+dy = L/N;
+dz = L/N;
+
+% Constants for elastic-elastic
+c11 = 27.5;
+c12 = 17.9;
+c44 = 5.43;
+
+% Constants for diff polarization-polarization
+G11 = 51;
+G14 = 0;
+G44 = 2;
+
+% Constant for polarization
+a1 = -3.712;
+a11 = 6.079;
+a12 = 1.303;
+a111 = 1.294;
+a112 = -1.95;
+a123 = -2.5;
+a1111 = 3.863;
+a1112 = 2.529;
+a1122 = 1.637;
+a1123 = 1.367;
+
+% Constants for elastic-polarization
+q11 = 14.2;
+q12 = -0.74;
+q44 = 1.57;
+
+energy_domen_3d = @(domen_arr) sum(sum(sum( ...
+    domen_arr_3d(a1, a11, a12, a111, a112, a123, a1111, a1112, a1122, ...
+    a1123, domen_arr(:, :, :, 1), domen_arr(:, :, :, 2), ...
+    domen_arr(:, :, :, 3)))));
+
+energy_elasticity_3d = @(a_arr) sum(sum(sum(elasticity_arr_3d(c11,c12,c44,...
+    func_u_3d(func_arr_3d(a_arr, N), 1, 1, dx, dx), ...
+    func_u_3d(func_arr_3d(a_arr, N), 2, 2, dy, dy), ...
+    func_u_3d(func_arr_3d(a_arr, N), 3, 3, dz, dz), ...
+    func_u_3d(func_arr_3d(a_arr, N), 1, 2, dx, dy), ...
+    func_u_3d(func_arr_3d(a_arr, N), 2, 3, dy, dz), ...
+    func_u_3d(func_arr_3d(a_arr, N), 1, 3, dx, dz)...
+    ))));
+
+energy_interaction_3d = @(a_arr, domen_arr) sum(sum(sum(interaction_arr_3d(q11, q12, q44, ...
+    func_u_3d(a_arr, 1, 1, dx, dx), ...
+    func_u_3d(a_arr, 2, 2, dy, dy), ...
+    func_u_3d(a_arr, 3, 3, dz, dz), ...
+    func_u_3d(a_arr, 1, 2, dx, dy), ...
+    func_u_3d(a_arr, 2, 3, dy, dz), ...
+    func_u_3d(a_arr, 1, 3, dx, dz), ...
+    domen_arr(:, :, :, 1), domen_arr(:, :, :, 2), domen_arr(:, :, :, 3) ...
+    ))));
+
+energy_domen_gradient_3d = @(domen_arr) sum(sum(sum(domen_gradient_arr_3d(G11, G14, G44, ...
+    domen_diff_3d(domen_arr(:, :, :, 1), 1, dx), ...
+    domen_diff_3d(domen_arr(:, :, :, 2), 2, dx), ...
+    domen_diff_3d(domen_arr(:, :, :, 3), 3, dx), ...
+    domen_diff_3d(domen_arr(:, :, :, 1), 2, dx), ...
+    domen_diff_3d(domen_arr(:, :, :, 2), 1, dx), ...
+    domen_diff_3d(domen_arr(:, :, :, 2), 3, dx), ...
+    domen_diff_3d(domen_arr(:, :, :, 3), 2, dx), ...
+    domen_diff_3d(domen_arr(:, :, :, 3), 1, dx), ...
+    domen_diff_3d(domen_arr(:, :, :, 1), 3, dx) ...
+    ))));
+
+optfunc = @(a_arr) energy_elasticity_3d(func_arr_3d(a_arr(1:numel(a_arr)/2), N)) ... 
+    + energy_domen_3d(func_arr_3d(a_arr(numel(a_arr)/2+1:end), N)) ...
+    + energy_interaction_3d(func_arr_3d(a_arr(1:numel(a_arr)/2), N), ...
+                            func_arr_3d(a_arr(numel(a_arr)/2+1:end), N)) ...
+    + energy_domen_gradient_3d(func_arr_3d(a_arr(numel(a_arr)/2+1:end), N));
+
+% Set the boundary conditions
+Aeq = zeros(6*N*N*N,6*N*N*N);
+beq = zeros(6*N*N*N, 1);
+
+% % Corners of the lower face (only elastic)
+% % Points on axe x
+% Aeq(1, 1) = 1; Aeq(N, N) = 1;
+% Aeq(N*(N-1)+1, N*(N-1)+1) = 1; Aeq(N*N, N*N) = 1;
+% % Points on axe y
+% Aeq(N*N*N+1, N*N*N+1) = 1; Aeq(N*N*N+N, N*N*N+N) = 1;
+% Aeq(N*N*N+N*(N-1)+1, N*N*N+N*(N-1)+1) = 1; Aeq(N*N*N+N*N, N*N*N+N*N) = 1;
+% % Points on axe z
+% Aeq(2*N*N*N+1, 2*N*N*N+1) = 1; Aeq(2*N*N*N+N, 2*N*N*N+N) = 1;
+% Aeq(2*N*N*N+N*(N-1)+1, 2*N*N*N+N*(N-1)+1) = 1; Aeq(2*N*N*N+N*N, 2*N*N*N+N*N) = 1;
+% 
+% beq(1, 1) = -0.5; beq(N, 1) = 0.5; beq(N*(N-1)+1, 1) = -0.5; beq(N*N) = 0.5; 
+% beq(N*N*N+1, 1) = -0.5; beq(N*N*N+N, 1) = -0.5; beq(N*N*N+N*(N-1)+1, 1) = 0.5; beq(N*N*N+N*N) = 0.5; 
+% beq(2*N*N*N+1, 1) = 0; beq(2*N*N*N+N, 1) = 0; beq(2*N*N*N+N*(N-1)+1, 1) = 0; beq(2*N*N*N+N*N) = 0;
+
+% All lower face
+% Corners on axe x
+Aeq(1, 1) = 1; Aeq(N, N) = 1;
+Aeq(N*(N-1)+1, N*(N-1)+1) = 1; Aeq(N*N, N*N) = 1;
+% Corners on axe y
+Aeq(N*N*N+1, N*N*N+1) = 1; Aeq(N*N*N+N, N*N*N+N) = 1;
+Aeq(N*N*N+N*(N-1)+1, N*N*N+N*(N-1)+1) = 1; Aeq(N*N*N+N*N, N*N*N+N*N) = 1;
+% Points on axe z (all lower face)
+for i = 1:N*N
+    Aeq(2*N*N*N+i, 2*N*N*N+i) = 1;
+end
+
+beq(1, 1) = -0.5; beq(N, 1) = 0.5; beq(N*(N-1)+1, 1) = -0.5; beq(N*N) = 0.5; 
+beq(N*N*N+1, 1) = -0.5; beq(N*N*N+N, 1) = -0.5; beq(N*N*N+N*(N-1)+1, 1) = 0.5; beq(N*N*N+N*N) = 0.5; 
+for i = 1:N*N
+    beq(2*N*N*N+i, 1) = 0;
+end
+ 
+
+
+
+
+% options = optimoptions(@fmincon, 'Algorithm', 'sqp','Display','iter', 'MaxFunctionEvaluations', 10^7, 'MaxIterations', 10^3, 'UseParallel', true);
+% options = optimoptions(@fmincon,'Algorithm', 'sqp','Display','iter', 'MaxIterations', 1000);
+options = optimoptions(@fmincon, 'MaxFunctionEvaluations',20000000, 'Display','iter', 'MaxIterations',X, 'Algorithm', 'interior-point');
+
+% 
+tStart = tic;
+[a_arr1, fmin1]= fmincon(optfunc,work_arr,[],[],Aeq,beq, [],[],[],options);
+toc;
+a = duration([0, 0, toc(tStart)]); 
+number_point = string(N);
+number_iteration = string(X);
+name_direction = 'C:/Users/User/Labs/Matlab/resilience/new/';
+name_file = name_direction + 'data' + number_point + '_' + number_iteration + '.mat';
+save(name_file, 'a', 'a_arr1')
+end
+end
 %% Draw 3D
 value_arr_x = zeros(N, N, N);
 value_arr_y = zeros(N, N, N);
