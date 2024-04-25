@@ -1,10 +1,9 @@
 %%
 function [X,U,P]=temp6
 N=3000;
-% data = zeros(idivide(int16(N),int16(100)), 2);
-data = [];
+data = zeros(idivide(int16(N),int16(100)), 2);
 
-n=[5 5 4]; % размер решётки (n-1)
+n=[10 10 6]; % размер решётки (n-1)
 global A C Q G d % константы
 d=1; % шаг решётки
 % A=[-3.712 6.079 1.303 1.294 -1.950 -2.5 3.863 2.529 1.637 1.367]; % порядки!
@@ -20,31 +19,22 @@ global fix
 fix=false(size(X{1})); fix(:,:,1)=true;
 
 % Сделаем сдвиг на 0.2 через meshgrid (суммарный сдвиг)
-x_fix = linspace(0, 0.2, n(1)+1);
-y_fix = linspace(0, 0.2, n(2)+1);
-[X_fix, Y_fix] = meshgrid(x_fix, y_fix);
-X_fix = reshape(X_fix, [numel(X_fix), 1]);
-Y_fix = reshape(Y_fix, [numel(Y_fix), 1]);
+% x_fix = linspace(0, 0.2, n(1)+1);
+% y_fix = linspace(0, 0.2, n(2)+1);
+% [X_fix, Y_fix] = meshgrid(x_fix, y_fix);
+% X_fix = reshape(X_fix, [numel(X_fix), 1]);
+% Y_fix = reshape(Y_fix, [numel(Y_fix), 1]);
 
-% U{1}(fix)=(X{1}(fix)-X_fix)*d;
-% U{2}(fix)=(X{2}(fix)-Y_fix)*d;
-% U{3}(fix)=0;
-
-for i=1:3
-    U{i}=(rand(n+1)-1/2)*d*10^(-1);
-    P{i}(fix)=(rand(n(1:2)+1)-1/2)*d; 
-end
-U{1}
+% U{1}(fix)=(X{1}(fix)-X_fix)*d; U{2}(fix)=(X{2}(fix)-Y_fix)*d;
+% for i=1:3, P{i}(fix)=(rand(n(1:2)+1)-1/2)*d; end
 
 % цикл градиентного спуска
-F=energies(U,P); 
-k0=0; 
-oo=0;
+F=energies(U,P); k0=0; oo=0;
 % while true
 for i =1:N
         oo=oo+1;
         [GU,GP,gmax]=gradflow; % градиенты
-        if gmax<1e-4*d, break, end % критерий остановки
+%         if gmax<1e-4*d, break, end % критерий остановки
         mu=min(1,1e-3*d/gmax); f=step_along(U,P,GU,GP,mu); f_=f;
         k=0;
         % определяем интервал одномерного поиска
@@ -55,10 +45,7 @@ for i =1:N
             while f<=f_, f_=f; mu=2*mu; f=step_along(U,P,GU,GP,mu); k=k+1; end
         end
         if k>k0,k0=k; end
-        if f-2*f_+F == 0
-            disp([f f_ F])
-            break
-        end
+        if f-2*f_+F == 0, break, end
         mu=mu/4*(1-2*(f_-F)/(f-2*f_+F));
         [F,U,P]=step_along(U,P,GU,GP,mu);
         if mod(oo,100)==0 
@@ -66,9 +53,8 @@ for i =1:N
             data(idivide(int16(oo),int16(100)), 2) = F;
             
         end
-%         GU{1}
 end
-save('data.mat','data', 'X', 'U', 'P')
+save(['data' point '.mat'],'data', 'X', 'U', 'P')
 visual(X,U,P)
 disp([oo k0])
 end
@@ -216,7 +202,7 @@ for i=1:3
     GU{i1}=GU{i1}+gradflow_local(T,i3);
     T=c(3)*E{i3+3}-q(3)*P{i1}.*P{i2};
     GU{i1}=GU{i1}+gradflow_local(T,i2);
-%     GU{i1}(fix)=0; % GP{i1}(fix)=0; % для фиксированных узлов
+    % GU{i1}(fix)=0; % GP{i1}(fix)=0; % для фиксированных узлов
 end
 % максимальная длина градиента U
 gmax=sqrt(max(GU{1}(:).^2+GU{2}(:).^2+GU{3}(:).^2));

@@ -1,0 +1,311 @@
+%% Descend
+clc 
+clear
+
+N=4; %Кол-во атомов в стержне
+
+elastic_arr = zeros(N, N, N, 3);
+% dom_arr = rand(N, N, N, 3);
+dom_arr = zeros(N, N, N, 3);
+work_arr = zeros(N, N, N, 6);
+work_arr(:, :, :, 1:3) = elastic_arr;
+work_arr(:, :, :, 4:6) = dom_arr;
+
+deviation = 0.3;
+
+work_arr(1, 1, 1, 1) = -deviation;
+work_arr(N, 1, 1, 1) = deviation;
+work_arr(1, N, 1, 1) = -deviation;
+work_arr(N, N, 1, 1) = deviation;
+work_arr(1, 1, 1, 2) = -deviation;
+work_arr(N, 1, 1, 2) = -deviation;
+work_arr(1, N, 1, 2) = deviation;
+work_arr(N, N, 1, 2) = deviation;
+
+opt_arr = reshape(work_arr, [1, 6*N*N*N]);
+
+L = 1;
+dx = L/N;
+dy = L/N;
+dz = L/N;
+
+% Constants for elastic-elastic
+c11 = 27.5;
+c12 = 17.9;
+c44 = 5.43;
+
+% Constants for diff polarization-polarization
+G11 = 51;
+G14 = 0;
+G44 = 2;
+
+% Constant for polarization
+a1 = -3.712;
+a11 = 6.079;
+a12 = 1.303;
+a111 = 1.294;
+a112 = -1.95;
+a123 = -2.5;
+a1111 = 3.863;
+a1112 = 2.529;
+a1122 = 1.637;
+a1123 = 1.367;
+
+% Constants for elastic-polarization
+q11 = 14.2;
+q12 = -0.74;
+q44 = 1.57;
+
+
+% sum(A, 'all'); fix
+energy_domen_3d = @(domen_arr) sum(sum(sum( ...
+    domen_arr_3d(a1, a11, a12, a111, a112, a123, a1111, a1112, a1122, ...
+    a1123, domen_arr(:, :, :, 1), domen_arr(:, :, :, 2), ...
+    domen_arr(:, :, :, 3)))));
+
+energy_elasticity_3d = @(a_arr) sum(sum(sum(elasticity_arr_3d(c11,c12,c44,...
+    func_u_3d(func_arr_3d(a_arr, N), 1, 1, dx, dx), ...
+    func_u_3d(func_arr_3d(a_arr, N), 2, 2, dy, dy), ...
+    func_u_3d(func_arr_3d(a_arr, N), 3, 3, dz, dz), ...
+    func_u_3d(func_arr_3d(a_arr, N), 1, 2, dx, dy), ...
+    func_u_3d(func_arr_3d(a_arr, N), 2, 3, dy, dz), ...
+    func_u_3d(func_arr_3d(a_arr, N), 1, 3, dx, dz)...
+    ))));
+
+energy_interaction_3d = @(a_arr, domen_arr) sum(sum(sum(interaction_arr_3d(q11, q12, q44, ...
+    func_u_3d(a_arr, 1, 1, dx, dx), ...
+    func_u_3d(a_arr, 2, 2, dy, dy), ...
+    func_u_3d(a_arr, 3, 3, dz, dz), ...
+    func_u_3d(a_arr, 1, 2, dx, dy), ...
+    func_u_3d(a_arr, 2, 3, dy, dz), ...
+    func_u_3d(a_arr, 1, 3, dx, dz), ...
+    domen_arr(:, :, :, 1), domen_arr(:, :, :, 2), domen_arr(:, :, :, 3) ...
+    ))));
+
+energy_domen_gradient_3d = @(domen_arr) sum(sum(sum(domen_gradient_arr_3d(G11, G14, G44, ...
+    domen_diff_3d(domen_arr(:, :, :, 1), 1, dx), ...
+    domen_diff_3d(domen_arr(:, :, :, 2), 2, dx), ...
+    domen_diff_3d(domen_arr(:, :, :, 3), 3, dx), ...
+    domen_diff_3d(domen_arr(:, :, :, 1), 2, dx), ...
+    domen_diff_3d(domen_arr(:, :, :, 2), 1, dx), ...
+    domen_diff_3d(domen_arr(:, :, :, 2), 3, dx), ...
+    domen_diff_3d(domen_arr(:, :, :, 3), 2, dx), ...
+    domen_diff_3d(domen_arr(:, :, :, 3), 1, dx), ...
+    domen_diff_3d(domen_arr(:, :, :, 1), 3, dx) ...
+    ))));
+
+optfunc = @(a_arr) energy_elasticity_3d(func_arr_3d(a_arr(1:numel(a_arr)/2), N)) ... 
+    + energy_domen_3d(func_arr_3d(a_arr(numel(a_arr)/2+1:end), N)) ...
+    + energy_interaction_3d(func_arr_3d(a_arr(1:numel(a_arr)/2), N), ...
+                            func_arr_3d(a_arr(numel(a_arr)/2+1:end), N)) ...
+    + energy_domen_gradient_3d(func_arr_3d(a_arr(numel(a_arr)/2+1:end), N));
+
+% my_arr = descend(optfunc, opt_arr);
+% my_arr = reshape(my_arr, [N, N, N, 6]);
+
+pin = 0*work_arr + 1;
+for i = 1:3
+    pin(1, 1, 1, i) = 0;
+    pin(N, 1, 1, i) = 0;
+    pin(1, N, 1, i) = 0;
+    pin(N, N, 1, i) = 0;
+end
+for i = 1:3
+    for j = 1:3
+        pin(i, j, 1, 3) = 0;
+    end
+end
+pin = reshape(pin, [1, N*N*N*6]);
+
+% my_arr1 = descend_with_pin(optfunc, opt_arr, pin);
+% my_arr1 = reshape(my_arr1, [N, N, N, 6]);
+
+optfunc(opt_arr)
+my_arr2 = descend_with_pin_and_step(optfunc, opt_arr, pin, 1);
+optfunc(my_arr2)
+my_arr2 = descend_with_pin_and_step(optfunc, my_arr2, pin, 0.1);
+optfunc(my_arr2)
+my_arr2 = reshape(my_arr2, [N, N, N, 6]);
+
+
+%% Draw 3D
+draw_arr = my_arr2;
+
+
+value_arr_x = zeros(N, N, N);
+value_arr_y = zeros(N, N, N);
+value_arr_z = zeros(N, N, N);
+value_arr_domen_x = zeros(N, N, N);
+value_arr_domen_y = zeros(N, N, N);
+value_arr_domen_z = zeros(N, N, N);
+for i = 1:N
+    value_arr_x(i, :, :) = draw_arr(i, :, :, 1) + i-1;
+    value_arr_y(:, i, :) = draw_arr(:, i, :, 2) + i-1;
+    value_arr_z(:, :, i) = draw_arr(:, :, i, 3) + i-1;
+    value_arr_domen_x(i, :, :) = draw_arr(i, :, :, 4);
+    value_arr_domen_y(:, i, :) = draw_arr(:, i, :, 5);
+    value_arr_domen_z(:, :, i) = draw_arr(:, i, :, 6);
+end
+n = 0;
+figure;
+hold on;
+xlabel('X');
+ylabel('Y');
+zlabel('Z');
+
+for i = 1:numel(value_arr_x(:, 1, 1))
+    for j = 1:numel(value_arr_x(1, :, 1))
+        for k = 1:numel(value_arr_x(1, 1, :))
+            n = n+1;
+            plot3(value_arr_x(i, j, k), value_arr_y(i, j, k), value_arr_z(i, j, k), 'o');
+            quiver3(value_arr_x(i, j, k), value_arr_y(i, j, k), value_arr_z(i, j, k), ...
+                value_arr_domen_x(i, j, k), value_arr_domen_y(i, j, k), value_arr_domen_z(i, j, k), 0.2);
+%             plot3(value_arr_x(i, j, 1), value_arr_y(i, j, 1), value_arr_z(i, j, 1), 'o');
+        end
+    end
+end
+hold off;
+
+%% functions
+function array = func_arr_3d(a_arr, N)
+    array = reshape(a_arr, [N, N, N, 3]);
+end
+
+function array = func_u_3d(a_arr, index1, index2, d1, d2)
+    num_x = numel(a_arr(:, 1, 1, 1));
+    num_y = numel(a_arr(1, :, 1, 1));
+    num_z = numel(a_arr(1, 1, :, 1));
+    array = zeros(num_x, num_y, num_z);
+    a = a_arr(:, :, :, index1);
+    for i=1:(index2-1)
+        a = permute(a, [2 3 1]);
+    end
+    array(1:(numel(array(:, 1, 1))-1), :, :) = array(1:(numel(array(:, 1, 1))-1), :, :)...
+        + diff(a(:, :, :), 1, 1)/d2;
+    for i=1:(4-index2)
+        array = permute(array, [2 3 1]);
+    end
+    if index1 ~= index2
+        a = a_arr(:, :, :, index2);
+        for i=1:(index1-1)
+            a = permute(a, [2 3 1]);
+            array = permute(array, [2 3 1]);
+        end
+        array(1:(numel(array(:, 1, 1))-1), :, :) = array(1:(numel(array(:, 1, 1))-1), :, :)...
+            + diff(a(:, :, :), 1, 1)/d1;
+        for i=1:(4-index1)
+            array = permute(array, [2 3 1]);
+        end
+    end
+end
+
+function array = domen_diff_3d(p, index, d)
+    num_x = numel(p(:, 1, 1));
+    num_y = numel(p(1, :, 1));
+    num_z = numel(p(1, 1, :));
+    array = zeros(num_x, num_y, num_z);
+    a = p;
+    for i=1:(index-1)
+        a = permute(a, [2 3 1]);
+    end
+    array(1:(numel(array(:, 1, 1))-1), :, :) = array(1:(numel(array(:, 1, 1))-1), :, :)...
+        + diff(a(:, :, :), 1, 1)/d;
+    for i=1:(4-index)
+        array = permute(array, [2 3 1]);
+    end
+end
+
+function array = domen_arr_3d(a1, a11, a12, a111, a112, a123, a1111, a1112, a1122, a1123, p1, p2, p3)
+    array = a1*(p1.^2 + p2.^2 + p3.^2) ...
+          + a11*(p1.^4 + p2.^4 + p3.^4) ...
+          + a12*(p1.*p2 + p2.*p3 + p1.*p3) ...
+          + a111*(p1.^6 + p2.^6 + p3.^6) ...
+          + a112*(p1.^4.*(p2.^2 + p3.^2) + p2.^4.*(p1.^2 + p3.^2) + p3.^4.*(p1.^2 + p2.^2)) ...
+          + a123*(p1.^2.*p2.^2.*p3.^2) ...
+          + a1111*(p1.^8 + p2.*8 + p3.*8) ...
+          + a1112*(p1.^6.*(p2.^2 + p3.^2) + p2.^6.*(p1.^2 + p3.^2) + p3.^6.*(p1.^2 + p2.^2)) ...
+          + a1122*(p1.^4.*p2.^4 + p2.^4.*p3.^4 + p1.^4.*p3.^4) ...
+          + a1123*(p1.^4.*p2.^2.*p3.^2 + p1.^2.*p2.^4.*p3.^2 + p1.^2.*p2.^2.*p3.^4);
+end
+
+function array = elasticity_arr_3d(c11,c12,c44,u11,u22,u33, u12, u23, u13)
+    array = 1/2 * c11*(u11.^2 + u22.^2 + u33.^2) ...
+            + c12*(u11.*u22 + u22.*u33 + u11.*u33) ...
+            + 2*c44*(u12.^2 + u23.^2 + u13.^2);
+end
+
+function array = interaction_arr_3d(q11, q12, q44, u11, u22, u33, u12, u23, u13, p1, p2, p3)
+    array = -q11*(u11.*p1.^2 + u22.*p2.^2 + u33.*p3.^2)...
+            -q12*(u11.*(p2.^2+p3.^2) + u22.*(p1.^2+p3.^2) + u33.*(p1.^2+p2.^2))...
+            -2*q44*(u12.*p1.*p2 + u23.*p2.*p3 + u13.*p1.*p3);
+end
+
+function array = domen_gradient_arr_3d(G11, G14, G44, p11, p22, p33, p12, p21, p23, p32, p31, p13)
+    array = 1/2*G11*(p11.^2 + p22.^2 + p33.^2) ...
+            + G14*(p11.*p22 + p22.*p33 + p11.*p33) ...
+            + G44*(p12.^2 + p21.^2 + p23.^2 + p32.^2 + p31.^2 + p13.^2);
+end
+
+
+function x_cur = descend(F,x0)
+x_cur = x0;
+dxmag = 0.00001;
+step_mag = 2; % Adjust as you like
+for i_descend=1:20 % Adjust as you like
+    g = grad(F,x_cur,dxmag);
+    g_dir = g/norm(g);
+    dx = -g_dir*step_mag;
+    x_cur = x_cur+dx;
+    
+    F_cur = F(x_cur);
+    %disp([i_descend, F_cur, x_cur]);
+    disp([i_descend, F_cur])
+end
+end
+
+
+function x_cur = descend_with_pin(F, x0, pin)
+x_cur = x0;
+dxmag = 0.00001;
+step_mag = 2; % Adjust as you like
+for i_descend=1:20 % Adjust as you like
+    g = grad(F,x_cur,dxmag);
+    g = g.*pin;
+    g_dir = g/norm(g);
+    dx = -g_dir*step_mag;
+    x_cur = x_cur+dx;
+    
+    F_cur = F(x_cur);
+    %disp([i_descend, F_cur, x_cur]);
+    disp([i_descend, F_cur])
+end
+end
+
+
+function x_cur = descend_with_pin_and_step(F, x0, pin, step_mag)
+x_cur = x0;
+dxmag = 0.00001;
+for i_descend=1:20 % Adjust as you like
+    g = grad(F,x_cur,dxmag);
+    g = g.*pin;
+    g_dir = g/norm(g);
+    dx = -g_dir*step_mag;
+    x_cur = x_cur+dx;
+    
+    F_cur = F(x_cur);
+    %disp([i_descend, F_cur, x_cur]);
+    disp([i_descend, F_cur])
+end
+end
+
+
+function g=grad(F,x0,dxmag)
+g = 0*x0;
+for i=1:numel(x0)
+    F0 = F(x0);
+    x1 = x0;
+    x1(i) = x1(i) + dxmag;
+    F1 = F(x1);
+    g(i) = (F1-F0)/dxmag;
+end
+end
