@@ -1,16 +1,17 @@
-%%
-function [X,U,P]=temp6
-N=3000;
+function [X,U,P]=temp_small
+N=5000;
 % data = zeros(idivide(int16(N),int16(100)), 2);
 data = [];
 
-n=[5 5 4]; % размер решётки (n-1)
+n=[4 4 4]; % размер решётки (n-1)
 global A C Q G d % константы
 d=10^(-8); % шаг решётки
-A=[-3.712 6.079 1.303 1.294 -1.950 -2.5 3.863 2.529 1.637 1.367]; % порядки!
-% A=[-3.712*10^(7) 6.079*10^(8) 1.303*10^(8) 1.294*10^(9) -1.950*10^(9) -2.5*10^(9) 3.863*10^(10) 2.529*10^(10) 1.637*10^(10) 1.367*10^(10)]; % порядки!
-C=[27.5 17.9 5.43]; G=[51 0 2]; Q=[14.2 -0.74 1.57];
+% A=[-3.712 6.079 1.303 1.294 -1.950 -2.5 3.863 2.529 1.637 1.367]; % порядки!
+A=[-3.712*10^(7) 6.079*10^(8) 1.303*10^(8) 1.294*10^(9) -1.950*10^(9) -2.5*10^(9) 3.863*10^(10) 2.529*10^(10) 1.637*10^(10) 1.367*10^(10)]; % порядки!
+% C=[27.5 17.9 5.43]; G=[51 0 2]; Q=[14.2 -0.74 1.57];
 % C=[27.5 17.9 5.43]*10^(-10); G=[51 0 2]*10^(-11); Q=[14.2 -0.74 1.57]*10^(9);
+
+C=[27.5 17.9 5.43]*10^(-10); G=[0 0 0]*10^(-11); Q=[14.2 -0.74 1.57]*10^(9);
 
 [x,y,z]=ndgrid(d*(0:n(1)),d*(0:n(2)),d*(0:n(3))); X={x;y;z}; clear x y z
 U=cell(3,1); P=U; E=cell(6,1);
@@ -20,22 +21,25 @@ global fix
 fix=false(size(X{1})); fix(:,:,1)=true;
 
 % Сделаем сдвиг на 0.2 через meshgrid (суммарный сдвиг)
-x_fix = linspace(0, 0.2, n(1)+1);
-y_fix = linspace(0, 0.2, n(2)+1);
-[X_fix, Y_fix] = meshgrid(x_fix, y_fix);
-X_fix = reshape(X_fix, [numel(X_fix), 1]);
-Y_fix = reshape(Y_fix, [numel(Y_fix), 1]);
+% x_fix = linspace(0, 0.2, n(1)+1);
+% y_fix = linspace(0, 0.2, n(2)+1);
+% [X_fix, Y_fix] = meshgrid(x_fix, y_fix);
+% X_fix = reshape(X_fix, [numel(X_fix), 1]);
+% Y_fix = reshape(Y_fix, [numel(Y_fix), 1]);
 
 % U{1}(fix)=(X{1}(fix)-X_fix)*d;
 % U{2}(fix)=(X{2}(fix)-Y_fix)*d;
 % U{3}(fix)=0;
 
 for i=1:3
-    U{i}=(rand(n+1)-1/2)*d*10^(-1);
-    P{i}(fix)=(rand(n(1:2)+1)-1/2)*d; 
+%     U{i}=(rand(n+1)-1/2)*d*10^(-1);
+%     P{i}(fix)=(rand(n(1:2)+1)-1/2)*d;
+    P{i}(fix) = ones(n(1)+1, n(2)+1)*0.1;
 end
+% U{1}
+% U{2}
+% U{3}
 
-% visual(X,U,P)
 % цикл градиентного спуска
 F=energies(U,P); 
 k0=0; 
@@ -66,52 +70,14 @@ for i =1:N
             data(idivide(int16(oo),int16(100)), 2) = F;
             
         end
-        F
 %         GU{1}
 end
-save('data.mat','data', 'X', 'U', 'P')
+% save('data.mat','data', 'X', 'U', 'P')
 visual(X,U,P)
 disp([oo k0])
-end
-%%
-function [X,U,P]=my_temp6(X,U,P,N)
-% N=100;
-data = zeros(idivide(int16(N),int16(100)), 2);
-
-n=[10 10 5]; % размер решётки (n-1)
-global A C Q G d % константы
-d=1; % шаг решётки
-A=[-3.712 6.079 1.303 1.294 -1.950 -2.5 3.863 2.529 1.637 1.367]; % порядки!
-C=[27.5 17.9 5.43]; G=[51 0 2]; Q=[14.2 -0.74 1.57];
-
-% цикл градиентного спуска
-F=energies(U,P); k0=0; oo=0;
-% while true
-for i =1:N
-        oo=oo+1;
-        [GU,GP,gmax]=gradflow; % градиенты
-%         if gmax<1e-4*d, break, end % критерий остановки
-        mu=min(1,1e-3*d/gmax); f=step_along(U,P,GU,GP,mu); f_=f;
-        k=0;
-        % определяем интервал одномерного поиска
-        if f>F
-            while f>F, f=f_; mu=mu/2; f_=step_along(U,P,GU,GP,mu); end
-            mu=2*mu; k=k+1;
-        else       
-            while f<=f_, f_=f; mu=2*mu; f=step_along(U,P,GU,GP,mu); k=k+1; end
-        end
-        if k>k0,k0=k; end
-        mu=mu/4*(1-2*(f_-F)/(f-2*f_+F));
-        [F,U,P]=step_along(U,P,GU,GP,mu);
-        if mod(oo,100)==0 
-            data(idivide(int16(oo),int16(100)), 1) = oo;
-            data(idivide(int16(oo),int16(100)), 2) = F;
-            
-        end
-end
-save('data.mat','data', 'X', 'U', 'P')
-visual(X,U,P)
-disp([oo k0])
+% disp([P{1}])
+% disp([P{2}])
+% disp([P{3}])
 end
 
 %% ========================================================================
@@ -123,6 +89,7 @@ end
 
 %% ========================================================================
 function [F,FL,FC,FQ,FG]=energies(U,P0)
+% function [F,FL]=energies(U,P0)
 % вычисление энергии и её составляющих
 global A C Q G d E P dP
 % считаем производные на решётке и деформации
@@ -152,6 +119,8 @@ FG=G(1)/2*(dP{1,1}.^2+dP{2,2}.^2+dP{3,3}.^2)...
     +G(3)/2*(dP{1,2}.^2+dP{2,1}.^2+dP{2,3}.^2+dP{3,2}.^2+dP{3,1}.^2+dP{1,3}.^2);
 FL=sum(FL(:)); FC=sum(FC(:)); FQ=sum(FQ(:)); FG=sum(FG(:));
 F=FL+FC+FQ+FG; % * d^3 ?
+% FL=sum(FL(:));
+% F = FL;
 end
 
 %% ========================================================================

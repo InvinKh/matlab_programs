@@ -1,15 +1,16 @@
 %%
 function [X,U,P]=my_temp6
-N=30000;
+N=1000;
 % data = zeros(idivide(int16(N),int16(100)), 2);
 data = [];
 
 n=[10 10 6]; % размер решётки (n-1)
 global A C Q G d % константы
-d=1; % шаг решётки
-A=[-3.712 6.079 1.303 1.294 -1.950 -2.5 3.863 2.529 1.637 1.367]; % порядки!
-% A=[-3.712*10^(7) 6.079*10^(8) 1.303*10^(8) 1.294*10^(9) -1.950*10^(9) -2.5*10^(9) 3.863*10^(10) 2.529*10^(10) 1.637*10^(10) 1.367*10^(10)]; % порядки!
-C=[27.5 17.9 5.43]; G=[51 0 2]; Q=[14.2 -0.74 1.57];
+% d=1; % шаг решётки
+d=10^(-8);
+% A=[-3.712 6.079 1.303 1.294 -1.950 -2.5 3.863 2.529 1.637 1.367]; % порядки!
+A=[-3.712*10^(7) 6.079*10^(8) 1.303*10^(8) 1.294*10^(9) -1.950*10^(9) -2.5*10^(9) 3.863*10^(10) 2.529*10^(10) 1.637*10^(10) 1.367*10^(10)]; % порядки!
+% C=[27.5 17.9 5.43]; G=[51 0 2]; Q=[14.2 -0.74 1.57];
 C=[27.5 17.9 5.43]*10^(-10); G=[51 0 2]*10^(-11); Q=[14.2 -0.74 1.57]*10^(9);
 
 [x,y,z]=ndgrid(d*(0:n(1)),d*(0:n(2)),d*(0:n(3))); X={x;y;z}; clear x y z
@@ -41,103 +42,33 @@ oo=0;
 % while true
 for i =1:N
         oo=oo+1;
-        [GU,GP,g_u_max, g_p_max]=gradflow; % градиенты
-
-        if max(g_u_max, g_p_max)<1e-4*d, break, end % критерий остановки
-
-        mu_u=min(1,1e-3*d/g_u_max); 
-        mu_p=min(1,1e-3*d/g_p_max); 
-        
-        f=step_along(U,P,GU,GP,mu_u, mu_p); f_=f;
+        [GU,GP,gmax]=gradflow; % градиенты
+        if gmax<1e-4*d, break, end % критерий остановки
+        mu=min(1,1e-3*d/gmax); f=step_along(U,P,GU,GP,mu); f_=f;
         k=0;
+        % определяем интервал одномерного поиска
         if f>F
-            while f>F
-                f=f_; 
-                mu_u=mu_u/2; 
-                f_=step_along(U,P,GU,GP,mu_u, mu_p); 
-            end
-            mu_u=2*mu_u; k=k+1;
+            while f>F, f=f_; mu=mu/2; f_=step_along(U,P,GU,GP,mu); end
+            mu=2*mu; k=k+1;
         else       
-            while f<=f_
-                f_=f; mu_u=2*mu_u; 
-                f=step_along(U,P,GU,GP,mu_u, mu_p); 
-                k=k+1; 
-            end
+            while f<=f_, f_=f; mu=2*mu; f=step_along(U,P,GU,GP,mu); k=k+1; end
         end
         if k>k0,k0=k; end
         if f-2*f_+F == 0
             disp([f f_ F])
             break
         end
-        mu_u=mu_u/4*(1-2*(f_-F)/(f-2*f_+F));
-        [F,U,P]=step_along(U,P,GU,GP,mu_u, mu_p);
-
-        mu_u=min(1,1e-3*d/g_u_max); 
-        mu_p=min(1,1e-3*d/g_p_max); 
-        
-        f=step_along(U,P,GU,GP,mu_u, mu_p); f_=f;
-        k=0;
-        if f>F
-            while f>F
-                f=f_; 
-                mu_p=mu_p/2; 
-                f_=step_along(U,P,GU,GP,mu_u, mu_p); 
-            end
-            mu_p=2*mu_p; k=k+1;
-        else       
-            while f<=f_
-                f_=f; mu_p=2*mu_p; 
-                f=step_along(U,P,GU,GP,mu_u, mu_p); 
-                k=k+1; 
-            end
-        end
-        if k>k0,k0=k; end
-        if f-2*f_+F == 0
-            disp([f f_ F])
-            break
-        end
-        mu_p=mu_p/4*(1-2*(f_-F)/(f-2*f_+F));
-        [F,U,P]=step_along(U,P,GU,GP,mu_u, mu_p);
-
-
-%         k=0;
-%         % Вариант одновременного варьирования (НЕ РАБОТАЕТ)
-%         % определяем интервал одномерного поиска
-%         if f>F
-%             while f>F 
-%                 f=f_;
-%                 mu_u=mu_u/2;
-%                 mu_p=mu_p/2;
-%                 f_=step_along(U,P,GU,GP,mu_u, mu_p); 
-%             end
-%             mu_u=2*mu_u;
-%             mu_p=2*mu_p;
-%             k=k+1;
-%         else       
-%             while f<=f_
-%                 f_=f; 
-%                 mu_u=2*mu_u;
-%                 mu_p=2*mu_p; 
-%                 f=step_along(U,P,GU,GP,mu_u, mu_p); 
-%                 k=k+1; 
-%             end
-%         end
-%         if k>k0,k0=k; end
-%         if f-2*f_+F == 0
-%             disp([f f_ F])
-%             break
-%         end
-%         mu_u=mu_u/4*(1-2*(f_-F)/(f-2*f_+F));
-%         mu_p=mu_p/4*(1-2*(f_-F)/(f-2*f_+F));
-%         [F,U,P]=step_along(U,P,GU,GP,mu_u, mu_p);
-
-
+        mu=mu/4*(1-2*(f_-F)/(f-2*f_+F));
+        [F,U,P]=step_along(U,P,GU,GP,mu);
         if mod(oo,100)==0 
             data(idivide(int16(oo),int16(100)), 1) = oo;
             data(idivide(int16(oo),int16(100)), 2) = F;
             
         end
+        F
+%         GU{1}
 end
+
 save('data.mat','data', 'X', 'U', 'P')
 visual(X,U,P)
 disp([oo k0])
@@ -157,7 +88,7 @@ global A C Q G d E P dP
 % считаем производные на решётке и деформации
 dU=derivatives(U); dP=derivatives(P0); P=P0;
 i1=[1 5 9 6 3 2]; i2=[1 5 9 8 7 4]; % для нумерации по Фойгту
-for i=1:6, E{i}=(dU{i1(i)}+dU{i2(i)})/(2-(i>3)); end
+for i=1:6, E{i}=(dU{i1(i)}+dU{i2(i)})/(2-(i>3))/d; end
 % квадраты и 4-е степени для ускорения счёта
 q12=P{1}.^2; q22=P{2}.^2; q32=P{3}.^2; q14=q12.^2; q24=q22.^2; q34=q32.^2;
 FL=A(1)*(q12+q22+q32)...
