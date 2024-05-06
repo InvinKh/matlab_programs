@@ -1,12 +1,15 @@
 function [X,U,P]=elastic
-N=5000;
+N=1000;
 % data = zeros(idivide(int16(N),int16(100)), 2);
 data = [];
+global scale
+scale = 10^(-10)
 
 n=[10 10 5]; % размер решётки (n-1)
 global C d % константы
 d=10^(-8); % шаг решётки
-C=[27.5 17.9 5.43]*10^(-10);
+d=d/scale
+C=[27.5 17.9 5.43]*10^(9);
 % d=1; % шаг решётки
 % C=[27.5 17.9 5.43];
 
@@ -33,6 +36,8 @@ end
 U{2}(fix)=(X_fix);
 U{1}(fix)=(Y_fix);
 U{3}(fix)=0;
+% U{1}
+% X{1}(:, :, 1)+U{1}(:, :, 1)
 
 F=energies(U); 
 k0=0; 
@@ -64,17 +69,19 @@ for i =1:N
             data(idivide(int16(oo),int16(100)), 2) = F;
             
         end
+%         F
 %         GU{1}
 end
 % save('data_elastic.mat','data', 'X', 'U')
-F
+% U{1}
+[F, FC, dU] = arr_energies(U);
+save('data_el_en.mat', "F", "dU", "U")
 visual(X,U)
 disp([oo k0])
 end
 
-
 %% ========================================================================
-function [F,FC]=energies(U)
+function [F,FC, dU]=arr_energies(U)
 % function [F,FL]=energies(U,P0)
 % вычисление энергии и её составляющих
 global C d E
@@ -86,8 +93,27 @@ for i=1:6, E{i}=(dU{i1(i)}+dU{i2(i)})/(2-(i>3))/d; end
 FC=C(1)/2*(E{1}.^2+E{2}.^2+E{3}.^2)...
     +C(2)*(E{2}.*E{3}+E{1}.*E{3}+E{1}.*E{2})...
     +C(3)/2*(E{4}.^2+E{5}.^2+E{6}.^2);
+% FC=sum(FC(:));
+F=FC; % * d^3 ?
+F=F/numel(U{1});
+end
+
+%% ========================================================================
+function [F,FC]=energies(U)
+% function [F,FL]=energies(U,P0)
+% вычисление энергии и её составляющих
+global C d E
+% считаем производные на решётке и деформации
+dU=derivatives(U);
+i1=[1 5 9 6 3 2]; i2=[1 5 9 8 7 4]; % для нумерации по Фойгту
+for i=1:6, E{i}=(dU{i1(i)}+dU{i2(i)})/(2-(i>3)); end
+% квадраты и 4-е степени для ускорения счёта
+FC=C(1)/2*(E{1}.^2+E{2}.^2+E{3}.^2)...
+    +C(2)*(E{2}.*E{3}+E{1}.*E{3}+E{1}.*E{2})...
+    +C(3)/2*(E{4}.^2+E{5}.^2+E{6}.^2);
 FC=sum(FC(:));
 F=FC; % * d^3 ?
+F=F/numel(U{1});
 end
 %% ========================================================================
 function D=derivatives(V)

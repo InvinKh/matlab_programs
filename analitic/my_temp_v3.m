@@ -1,16 +1,16 @@
 %%
-function [X,U,P]=my_temp6
+function [X,U,P]=my_temp6_v3
 N=1000;
 % data = zeros(idivide(int16(N),int16(100)), 2);
 data = [];
+global scale
+
+scale = 10^(-10);
 
 n=[10 10 6]; % размер решётки (n-1)
 global A C Q G d % константы
-% d=1; % шаг решётки
-d=10^(-8);
-% A=[-3.712 6.079 1.303 1.294 -1.950 -2.5 3.863 2.529 1.637 1.367]; % порядки!
-A=[-3.712*10^(7) 6.079*10^(8) 1.303*10^(8) 1.294*10^(9) -1.950*10^(9) -2.5*10^(9) 3.863*10^(10) 2.529*10^(10) 1.637*10^(10) 1.367*10^(10)]; % порядки!
-% C=[27.5 17.9 5.43]; G=[51 0 2]; Q=[14.2 -0.74 1.57];
+d=10^(-8); % шаг решётки
+A=[-3.712*10^(7) 6.079*10^(8) 1.303*10^(8)*20 1.294*10^(9) -1.950*10^(9) -2.5*10^(9) 3.863*10^(10) 2.529*10^(-10) 1.637*10^(-10) 1.367*10^(-10)]; % порядки!
 C=[27.5 17.9 5.43]*10^(9); G=[51 0 2]*10^(-11); Q=[14.2 -0.74 1.57]*10^(9);
 
 
@@ -24,8 +24,8 @@ fix=false(size(X{1})); fix(:,:,1)=true;
 % Сделаем сдвиг на 0.2 через meshgrid (суммарный сдвиг)
 del = 50;
 del = del/100;
-x_fix = linspace(-del*d/2, del*d/2, n(1)+1);
-y_fix = linspace(-del*d/2, del*d/2, n(2)+1);
+x_fix = linspace(-del*d/2, del*d/2, n(1)+1)./scale;
+y_fix = linspace(-del*d/2, del*d/2, n(2)+1)./scale;
 [X_fix, Y_fix] = meshgrid(x_fix, y_fix);
 
 % U{1}(fix)=(X{1}(fix)-X_fix)*d;
@@ -36,11 +36,12 @@ U{2}(fix)=(X_fix);
 U{1}(fix)=(Y_fix);
 U{3}(fix)=0;
 
-for i=1:3
-    P{i}(fix) = ones(n(1)+1, n(2)+1)*0.0001;
-%     P{i}(fix)=(rand(n(1:2)+1)-1/2)*d; 
-%     P{i}=(rand(n+1)-1/2)*10^(-5); 
-end
+% for i=1:3
+%     P{i}(fix) = ones(n(1)+1, n(2)+1)*0.0001;
+% %     P{i}(fix)=(rand(n(1:2)+1)-1/2)*d; 
+% %     P{i}=(rand(n+1)-1/2)*10^(-5); 
+% end
+P{1} = ones(n+1)*0.1;
 
 
 % цикл градиентного спуска
@@ -66,7 +67,9 @@ for i =1:N
             disp([f f_ F])
             break
         end
-%         mu=mu/4*(1-2*(f_-F)/(f-2*f_+F));
+        mu=mu/4*(1-2*(f_-F)/(f-2*f_+F));
+        GP{1}
+        GU{1}
 %         mu
         [F,U,P]=step_along(U,P,GU,GP,mu);
         if mod(oo,100)==0 
@@ -74,13 +77,15 @@ for i =1:N
             data(idivide(int16(oo),int16(100)), 2) = F;
             
         end
-%         F
+%         oo
+        F
 %         GU{1}
 end
-U{1}
+% U{1}
 % P{1}
-[F,FL,FC,FQ,FG]=energies(U,P)
-save('data.mat','data', 'X', 'U', 'P')
+% [F,FL,FC,FQ,FG]=energies(U,P);
+
+save('data.mat','data', 'X', 'U', 'P');
 visual(X,U,P)
 disp([oo k0])
 end
@@ -95,11 +100,11 @@ end
 %% ========================================================================
 function [F,FL,FC,FQ,FG]=energies(U,P0)
 % вычисление энергии и её составляющих
-global A C Q G d E P dP
+global A C Q G d E P dP scale
 % считаем производные на решётке и деформации
 dU=derivatives(U); dP=derivatives(P0); P=P0;
 i1=[1 5 9 6 3 2]; i2=[1 5 9 8 7 4]; % для нумерации по Фойгту
-for i=1:6, E{i}=(dU{i1(i)}+dU{i2(i)})/(2-(i>3)); end
+for i=1:6, E{i}=(dU{i1(i)}+dU{i2(i)})/(2-(i>3))*scale; end
 % квадраты и 4-е степени для ускорения счёта
 q12=P{1}.^2; q22=P{2}.^2; q32=P{3}.^2; q14=q12.^2; q24=q22.^2; q34=q32.^2;
 FL=A(1)*(q12+q22+q32)...
@@ -121,9 +126,10 @@ FQ=-Q(1)*(E{1}.*q12+E{2}.*q22+E{3}.*q32)...
 FG=G(1)/2*(dP{1,1}.^2+dP{2,2}.^2+dP{3,3}.^2)...
     +G(2)*(dP{1,1}.*dP{2,2}+dP{2,2}.*dP{3,3}+dP{1,1}.*dP{3,3})...
     +G(3)/2*(dP{1,2}.^2+dP{2,1}.^2+dP{2,3}.^2+dP{3,2}.^2+dP{3,1}.^2+dP{1,3}.^2);
-FL=sum(FL(:)); FC=sum(FC(:)); FQ=sum(FQ(:)); FG=sum(FG(:));
-% F=FL+FC+FQ+FG; % * d^3 ?
-F=FL+FC+FQ; % * d^3 ?
+FL=sum(FL(:)); FC=sum(FC(:))/scale^2; FQ=sum(FQ(:))/scale; FG=sum(FG(:));
+F=FL+FC+FQ+FG; % * d^3 ?
+% F=FL+FC+FQ; % * d^3 ?
+F=F/numel(P0{1});
 end
 
 %% ========================================================================
@@ -218,6 +224,7 @@ end
 %% ========================================================================
 function visual(X,U,P)
 % визуализация решётки с деформациями и поляризацией
+global scale
 dx=zeros(3,1); xmin=dx; X1=X; G=dx; G1=dx;
 d=X{1}(2,1,1)-X{1}(1,1,1); % шаг решётки
 for i=1:3, xmin(i)=min(X{i}(:)); dx(i)=max(X{i}(:))-xmin(i); end
@@ -225,13 +232,13 @@ for i=1:3, xmin(i)=min(X{i}(:)); dx(i)=max(X{i}(:))-xmin(i); end
 % patch(xmin(1)+[-1 5 5 -1]/4*dx(1),xmin(2)+[-1 -1 5 5]/4*dx(2),[0 0 0 0],...
 %     'facecolor',0.9*[1 1 1])
 % находим максимальные смещения и поляризации
-umax=U{1}.^2+U{2}.^2+U{3}.^2; pmax=P{1}.^2+P{2}.^2+P{3}.^2;
+umax=(U{1}.^2+U{2}.^2+U{3}.^2).*scale^2; pmax=P{1}.^2+P{2}.^2+P{3}.^2;
 umax=sqrt(max(umax(:))); pmax=sqrt(max(pmax(:)));
 % нормируем векторные поля с учётом размера ячейки
 for i=1:3
 %     U{i}=(d/umax)*U{i}; 
     P{i}=(3/4*d/pmax)*P{i}; 
-    X1{i}=X{i}+U{i};
+    X1{i}=X{i}+U{i}*scale;
 end
 
 % строим исходную и деформированную решётки
@@ -247,7 +254,7 @@ axis equal, hold on
 %     G1(i)=line(x1{1}(:),x1{2}(:),x1{3}(:),'color',[0 0 1 0.5],'linewidth',1);
 % end
 
-for i=1:3, XU{i}=[X{i}(:) X{i}(:)+U{i}(:)*10]'; end
+for i=1:3, XU{i}=[X{i}(:) X{i}(:)+X1{i}(:)]'; end
 line(XU{1},XU{2},XU{3},'color',[0.9 0.4 0.1],'linewidth',2.5)
 scatter3(X{1}(:),X{2}(:),X{3}(:),'MarkerEdgeColor','k',...
     'MarkerFaceColor',[0 .75 .75],'SizeData', 0.1)

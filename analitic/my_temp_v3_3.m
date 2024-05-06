@@ -1,18 +1,21 @@
 %%
-function [X,U,P]=my_temp6
+function [X,U,P]=my_temp_v3_3
 N=1000;
 % data = zeros(idivide(int16(N),int16(100)), 2);
 data = [];
 
+% перейдём в ангстремы
+global scale
+scale = 10^(-10);
+
 n=[10 10 6]; % размер решётки (n-1)
 global A C Q G d % константы
-% d=1; % шаг решётки
-d=10^(-8);
-% A=[-3.712 6.079 1.303 1.294 -1.950 -2.5 3.863 2.529 1.637 1.367]; % порядки!
-A=[-3.712*10^(7) 6.079*10^(8) 1.303*10^(8) 1.294*10^(9) -1.950*10^(9) -2.5*10^(9) 3.863*10^(10) 2.529*10^(10) 1.637*10^(10) 1.367*10^(10)]; % порядки!
-% C=[27.5 17.9 5.43]; G=[51 0 2]; Q=[14.2 -0.74 1.57];
-C=[27.5 17.9 5.43]*10^(9); G=[51 0 2]*10^(-11); Q=[14.2 -0.74 1.57]*10^(9);
-
+d=10^(-8); % шаг решётки
+d = d/scale;
+A=[-3.712*10^(7) 6.079*10^(8) 1.303*10^(8)*20 1.294*10^(9) -1.950*10^(9) -2.5*10^(9) 3.863*10^(10) 2.529*10^(-10) 1.637*10^(-10) 1.367*10^(-10)]; % порядки!
+C=[27.5 17.9 5.43]*10^(9); G=[51 0 2]*10^(-11); 
+% Q=[14.2 -0.74 1.57]*10^(9)*scale;
+Q=[-0.795 -1.222 1.57]*10^(10);
 
 [x,y,z]=ndgrid(d*(0:n(1)),d*(0:n(2)),d*(0:n(3))); X={x;y;z}; clear x y z
 U=cell(3,1); P=U; E=cell(6,1);
@@ -21,26 +24,30 @@ for i=1:3, U{i}=zeros(size(X{1})); P{i}=zeros(size(X{1})); end
 global fix
 fix=false(size(X{1})); fix(:,:,1)=true;
 
-% Сделаем сдвиг на 0.2 через meshgrid (суммарный сдвиг)
-del = 50;
-del = del/100;
-x_fix = linspace(-del*d/2, del*d/2, n(1)+1);
-y_fix = linspace(-del*d/2, del*d/2, n(2)+1);
-[X_fix, Y_fix] = meshgrid(x_fix, y_fix);
-
-% U{1}(fix)=(X{1}(fix)-X_fix)*d;
-% U{2}(fix)=(X{2}(fix)-Y_fix)*d;
+% % Сделаем сдвиг на 0.2 через meshgrid (суммарный сдвиг)
+% del = 50;
+% del = del/100;
+% x_fix = linspace(-del*d/2, del*d/2, n(1)+1);
+% y_fix = linspace(-del*d/2, del*d/2, n(2)+1);
+% [X_fix, Y_fix] = meshgrid(x_fix, y_fix);
+% 
+% % U{1}(fix)=(X{1}(fix)-X_fix)*d;
+% % U{2}(fix)=(X{2}(fix)-Y_fix)*d;
+% % U{3}(fix)=0;
+% 
+% U{2}(fix)=(X_fix);
+% U{1}(fix)=(Y_fix);
 % U{3}(fix)=0;
-
-U{2}(fix)=(X_fix);
-U{1}(fix)=(Y_fix);
-U{3}(fix)=0;
-
 for i=1:3
-    P{i}(fix) = ones(n(1)+1, n(2)+1)*0.0001;
-%     P{i}(fix)=(rand(n(1:2)+1)-1/2)*d; 
-%     P{i}=(rand(n+1)-1/2)*10^(-5); 
+    U{i}=(rand(n+1)-1/2)*d*10^(-10);
 end
+
+% for i=1:3
+%     P{i}(fix) = ones(n(1)+1, n(2)+1)*0.0001;
+% %     P{i}(fix)=(rand(n(1:2)+1)-1/2)*d; 
+% %     P{i}=(rand(n+1)-1/2)*10^(-5); 
+% end
+P{1} = ones(n+1)*0.1;
 
 
 % цикл градиентного спуска
@@ -66,7 +73,9 @@ for i =1:N
             disp([f f_ F])
             break
         end
-%         mu=mu/4*(1-2*(f_-F)/(f-2*f_+F));
+        mu=mu/4*(1-2*(f_-F)/(f-2*f_+F));
+%         GP{1}*mu
+%         GU{1}*mu
 %         mu
         [F,U,P]=step_along(U,P,GU,GP,mu);
         if mod(oo,100)==0 
@@ -74,13 +83,15 @@ for i =1:N
             data(idivide(int16(oo),int16(100)), 2) = F;
             
         end
-%         F
+%         oo
+        F
 %         GU{1}
 end
-U{1}
+% U{1}
 % P{1}
-[F,FL,FC,FQ,FG]=energies(U,P)
-save('data.mat','data', 'X', 'U', 'P')
+% [F,FL,FC,FQ,FG]=energies(U,P);
+
+save('data.mat','data', 'X', 'U', 'P');
 visual(X,U,P)
 disp([oo k0])
 end
@@ -124,6 +135,7 @@ FG=G(1)/2*(dP{1,1}.^2+dP{2,2}.^2+dP{3,3}.^2)...
 FL=sum(FL(:)); FC=sum(FC(:)); FQ=sum(FQ(:)); FG=sum(FG(:));
 % F=FL+FC+FQ+FG; % * d^3 ?
 F=FL+FC+FQ; % * d^3 ?
+F=F/numel(P0{1});
 end
 
 %% ========================================================================
@@ -189,7 +201,7 @@ for i=1:3
     GU{i1}=GU{i1}+gradflow_local(T,i3);
     T=c(3)*E{i3+3}-q(3)*P{i1}.*P{i2};
     GU{i1}=GU{i1}+gradflow_local(T,i2);
-    GU{i1}(fix)=0; % GP{i1}(fix)=0; % для фиксированных узлов
+%     GU{i1}(fix)=0; % GP{i1}(fix)=0; % для фиксированных узлов
 end
 % максимальная длина градиента U
 gmax1=sqrt(max(GU{1}(:).^2+GU{2}(:).^2+GU{3}(:).^2));

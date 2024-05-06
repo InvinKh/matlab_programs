@@ -27,10 +27,12 @@ N=3000;
 % data = zeros(idivide(int16(N),int16(100)), 2);
 data = [];
 
-n=[5 5 4]; % размер решётки (n-1)
+n=[10 10 5]; % размер решётки (n-1)
 global A G d % константы
 d=10^(-8); % шаг решётки
 A=[-3.712*10^(7) 6.079*10^(8) 1.303*10^(8) 1.294*10^(9) -1.950*10^(9) -2.5*10^(9) 3.863*10^(10) 2.529*10^(-10) 1.637*10^(-10) 1.367*10^(-10)]; % порядки!
+A=[-3.712*10^(7) 6.079*10^(8) 1.303*10^(8)*20 1.294*10^(9) -1.950*10^(9) -2.5*10^(9) 3.863*10^(10) 2.529*10^(-10) 1.637*10^(-10) 1.367*10^(-10)]; % порядки!
+
 G=[51 0 2]*10^(-11);
 % d=1;
 % A=[-3.712 6.079 1.303 1.294 -1.950 -2.5 3.863 2.529 1.637 1.367]; % порядки!
@@ -45,11 +47,16 @@ fix=false(size(X{1})); fix(:,:,1)=true;
 
 % Сделаем сдвиг на 0.2 через meshgrid (суммарный сдвиг)
 
-for i=1:3
-    P{i}(fix) = ones(n(1)+1, n(2)+1)*0.1;
-%     P{i}(fix)=(rand(n(1:2)+1)-1/2)*d; 
-end
-
+% P{1}(fix) = ones(n(1)+1, n(2)+1)*0.1;
+% for i=1:3
+%     P{i}(fix) = ones(n(1)+1, n(2)+1)*0.001;
+% %     P{i}(fix)=(rand(n(1:2)+1)-1/2)*d; 
+% end
+% P{1}(fix) = ones(n(1)+1, n(2)+1)*0.1;
+% for i=1:3
+%     P{i} = ones(n+1)*0.1;
+% end
+P{1} = ones(n+1)*0.1;
 % цикл градиентного спуска
 F=energies(P); 
 k0=0; 
@@ -69,27 +76,34 @@ for i =1:N
             while f<=f_, f_=f; mu=2*mu; f=step_along(P,GP,mu); k=k+1; end
         end
         if k>k0,k0=k; end
-        if f-2*f_+F == 0
-            disp([f f_ F])
-            break
-        end
-        mu=mu/4*(1-2*(f_-F)/(f-2*f_+F));
+        % вязкость
+        mu = mu*0.2;
+%         if f-2*f_+F == 0
+%             disp([f f_ F])
+%             break
+%         end
+%         mu=mu/4*(1-2*(f_-F)/(f-2*f_+F));
         [F,P]=step_along(P,GP,mu);
         if mod(oo,100)==0 
             data(idivide(int16(oo),int16(100)), 1) = oo;
             data(idivide(int16(oo),int16(100)), 2) = F;
             
         end
+%         mu
+        F
+        oo
+%         P{1}
+        visual(X, P)
         
 end
-% P{1}
+P{1}
 % P{2}
 % P{3}
 % [F, FL, FG] = energies_arr(P);
 % F
 % FL
 % FG
-F
+[F,FL,FG]=energies(P)
 % save('data_polarization.mat','data', 'X', 'P')
 visual(X,P)
 disp([oo k0])
@@ -128,6 +142,7 @@ FG=G(1)/2*(dP{1,1}.^2+dP{2,2}.^2+dP{3,3}.^2)...
 % FL=sum(FL(:));
 % F=FL; % * d^3 ?
 F=FL+FG; % * d^3 ?
+F=F/numel(P0);
 end
 %% ========================================================================
 function [F,FL,FG]=energies(P0)
@@ -155,6 +170,7 @@ FG=G(1)/2*(dP{1,1}.^2+dP{2,2}.^2+dP{3,3}.^2)...
 % F=FL; % * d^3 ?
 FL=sum(FL(:)); FG=sum(FG(:));
 F=FL+FG; % * d^3 ?
+F=F/numel(P0{1});
 end
 
 %% ========================================================================
@@ -260,10 +276,12 @@ for i=1:3
     G1(i)=line(x1{1}(:),x1{2}(:),x1{3}(:),'color',[0 0 1 0.5],'linewidth',1);
 end
 axis equal, hold on
+cla
 % строим векторы поляризации
 for i=1:3, XP{i}=[X1{i}(:) X1{i}(:)+P{i}(:)]'; end
 line(XP{1},XP{2},XP{3},'color',[0.9 0.4 0.1],'linewidth',2.5)
 scatter3(X1{1}(:),X1{2}(:),X1{3}(:),'MarkerEdgeColor','k',...
-    'MarkerFaceColor',[0 .75 .75],'SizeData',35)
+    'MarkerFaceColor',[0 .75 .75],'SizeData',5)
 axis tight
+drawnow
 end
