@@ -1,15 +1,19 @@
 %%
+% figure
+% visual(X, U, P)
 %%
-function [X,U,P]=my_temp_v4_3
-N=2000;
+function [X,U,P]=monodomen
+N=1000;
 % data = zeros(idivide(int16(N),int16(100)), 2);
 data = [];
+
+discret = 10;
 
 % перейдём в ангстремы
 global scale
 scale = 10^(-10);
 
-n=[100 12 2]; % размер решётки (n-1)
+n=[19 19 9]; % размер решётки (n-1)
 global A C Q G d % константы
 d=10^(-9); % шаг решётки
 d = d/scale;
@@ -17,7 +21,7 @@ A=[-3.712*10^(7) 6.079*10^(8) 1.303*10^(8)*40 1.294*10^(9) -1.950*10^(9) -2.5*10
 % A=[-3.712*10^(7) 6.079*10^(8) 1.303*10^(8) 1.294*10^(9) -1.950*10^(9) -2.5*10^(9) 3.863*10^(10) 2.529*10^(-10) 1.637*10^(-10) 1.367*10^(-10)]; % порядки!
 
 C=[27.5 17.9 5.43]*10^(9); 
-G=[51 0 100]*10^(-11)/scale^2*1;
+G=[51 0 20]*10^(-11)/scale^2*1;
 Q=[-6.236 -4.059 1.57]*10^(9)*0.9;
 % Q=[0.795 -1.222 1.57]*10^(9);
 % Q=[14.2 -0.74 1.57]*10^(9);
@@ -51,50 +55,56 @@ fix=false(size(X{1})); fix(:,:,1)=true;
 % ang=45;
 % ang=ang/180*pi;
 % part(find(tan(ang)*(X{1}+dri)>=X{2}))=true;
+
 % Стенка под углом со смещением по y
-dri=700;
-part = false(size(X{1}));
-ang=45;
-ang=ang/180*pi;
-part(find(tan(ang)*(X{1})>=X{2}+dri))=true;
-
-
-P{1} = ones(n+1)*0.05;
-P{2} = -P{1};
-P{1}(part) = P{1}(part)*0;
-P{2}(~part) = P{2}(~part)*0;
+% dri=0;
+% part = false(size(X{1}));
+% ang=45;
+% ang=ang/180*pi;
+% part(find(tan(ang)*(X{1})>=X{2}+dri))=true;
+% 
+% 
+% P{1} = ones(n+1)*0.05;
+% P{2} = -P{1};
+% P{1}(part) = P{1}(part)*0;
+% P{2}(~part) = P{2}(~part)*0;
 
 
 
 
 % Наполним массив ненулевыми смещениями
-% for i=1:3
-%     U{i}=(rand(n+1)-1/2)*d*10^(-10);
-% end
+for i=1:3
+    U{i}=(rand(n+1)-1/2)*d*10^(-10);
+end
 % U{1} = -X{1}*.01;
 % U{2} = -X{2}*.01;
 % U{3} = -X{3}*.01;
 % U{1}=ones(n+1)*d*linspace(-1, 1, n(3)+1)10^(-10);
 
 % Сделаем сдвиг на 0.2 через meshgrid (суммарный сдвиг)
-del = -5;
-del = del/100;
-x_fix = linspace(-del*d/2, del*d/2, n(1)+1);
-y_fix = linspace(-del*d/2, del*d/2, n(2)+1);
-[X_fix, Y_fix] = meshgrid(x_fix, y_fix);
-
-U{1}(fix)=(X_fix)';
-U{2}(fix)=(Y_fix)';
+% del = -50;
+% del = del/100;
+% del_x = del;
+% del_y = del*(n(2)+1)/(n(1)+1);
+% x_fix = linspace(-del_x*d/2, del_x*d/2, n(1)+1);
+% y_fix = linspace(-del_y*d/2, del_y*d/2, n(2)+1);
+% [X_fix, Y_fix] = meshgrid(x_fix, y_fix);
+% for i=1:n(3)+1
+%     U{1}(:, :, i)=(X_fix)';
+%     U{2}(:, :, i)=(Y_fix)';
+% end
+% U{1}(fix)=(X_fix)';
+% U{2}(fix)=(Y_fix)';
 % U{1}(fix)=0;
 % U{2}(fix)=0;
-U{3}(fix)=0;
+% U{3}(fix)=0;
 
 % for i=1:3
 %     P{i}(fix) = ones(n(1)+1, n(2)+1)*0.0001;
 % %     P{i}(fix)=(rand(n(1:2)+1)-1/2)*d; 
 % %     P{i}=(rand(n+1)-1/2)*10^(-5); 
 % end
-% P{1} = ones(n+1)*0.1;
+P{1} = ones(n+1)*0.1;
 % P{2} = ones(n+1)*0.1;
 % P{3} = ones(n+1)*0.1;
 
@@ -103,9 +113,10 @@ F=energies(U,P);
 k0=0; 
 oo=0;
 % while true
-visual(X,U,P)
-drawnow
+% visual(X,U,P)
+% drawnow
 figure
+drawnow
 for i =1:N
         oo=oo+1;
         [GU,GP,gmax]=gradflow; % градиенты
@@ -130,16 +141,22 @@ for i =1:N
 %         GP{1}*mu
 %         GU{1}*mu
 %         mu
-        [F,U,P]=step_along(U,P,GU,GP,mu);
-        if mod(oo,100)==0 
-            data(idivide(int16(oo),int16(100)), 1) = oo;
-            data(idivide(int16(oo),int16(100)), 2) = F;
-%             disp(oo)
+%         [F,U,P]=step_along(U,P,GU,GP,mu);
+        
+        if mod(oo,discret)==0 
+            data(idivide(int16(oo),int16(discret)), 1) = oo;
+            data(idivide(int16(oo),int16(discret)), 2) = F;
+            disp(oo)
 %             cla
 %             visual_now(X,U,P)
 %             drawnow
-        end
+%             [F,FL,FC,FQ,FG]=arr_energies(U,P);
+%             visual_energy(X, F,FL,FC,FQ,FG, n(3)+1)
+%             drawnow
+%             save('data.mat','data', 'X', 'U', 'P', 'E', 'F','FL','FC','FQ','FG' );
 
+        end
+        [F,U,P]=step_along(U,P,GU,GP,mu);
 %         oo
         F
 %         GU{1}
@@ -168,13 +185,40 @@ dz = (U{3}(:, :, n(3)+1)-U{3}(:, :, 1))/d/n(3)*100
 save('data.mat','data', 'X', 'U', 'P', 'E', 'F','FL','FC','FQ','FG' );
 visual(X,U,P)
 disp([oo k0])
-figure
-surf(X{1}(:, :, 1), X{2}(:, :, 1), F(:, :, 1))
-xlabel('X') 
-ylabel('Y')
-legend
+% figure
+% surf(X{1}(:, :, 1), X{2}(:, :, 1), F(:, :, 1))
+% xlabel('X') 
+% ylabel('Y')
+% legend
 end
 
+%%  ========================================================================
+function visual_energy(X, F, FC, FL, FQ, FG, layer)
+subplot(2, 2, 1)
+surf(X{1}(:, :, layer), X{2}(:, :, layer), FC(:, :, layer))
+xlabel('X') 
+ylabel('Y')
+title('FC')
+
+subplot(2, 2, 2)
+surf(X{1}(:, :, layer), X{2}(:, :, layer), FL(:, :, layer))
+xlabel('X') 
+ylabel('Y')
+title('FL')
+
+subplot(2, 2, 3)
+surf(X{1}(:, :, layer), X{2}(:, :, layer), FQ(:, :, layer))
+xlabel('X') 
+ylabel('Y')
+title('FQ')
+
+subplot(2, 2, 4)
+surf(X{1}(:, :, layer), X{2}(:, :, layer), FG(:, :, layer))
+xlabel('X') 
+ylabel('Y')
+title('FG')
+
+end
 %% ========================================================================
 function [F,U,P]=step_along(U,P,GU,GP,mu)
 % энергия после шага в направлении антиградиента: U -> (U - mu*dU)
@@ -312,7 +356,7 @@ for i=1:3
     GU{i1}=GU{i1}+gradflow_local(T,i3);
     T=c(3)*E{i3+3}-q(3)*P{i1}.*P{i2};
     GU{i1}=GU{i1}+gradflow_local(T,i2);
-    GU{i1}(fix)=0; % для фиксированных узлов
+%     GU{i1}(fix)=0; % для фиксированных узлов
 %     GP{i1}=0; % фиксация градиента
 end
 % максимальная длина градиента U
@@ -377,16 +421,23 @@ axis equal, hold on
 for i=1:3, XU{i}=[X{i}(:) X{i}(:)+U{i}(:)]'; end
 line(XU{1},XU{2},XU{3},'color',[0.9 0.4 0.1],'linewidth',2.5)
 scatter3(X{1}(:),X{2}(:),X{3}(:),'MarkerEdgeColor','k',...
-    'MarkerFaceColor',[0 .75 .75],'SizeData', 15)
+    'MarkerFaceColor',[0 .75 .75],'SizeData', 5)
 
+xlabel('X, A.U.') 
+ylabel('Y, A.U.') 
+zlabel('Z, A.U.')
 % строим векторы поляризации
 subplot(2, 1, 2)
 axis equal, hold on
 for i=1:3, XP{i}=[X1{i}(:) X1{i}(:)+P{i}(:)]'; end
 line(XP{1},XP{2},XP{3},'color',[0.9 0.4 0.1],'linewidth',2.5)
 scatter3(X1{1}(:),X1{2}(:),X1{3}(:),'MarkerEdgeColor','k',...
-    'MarkerFaceColor',[0 .75 .75],'SizeData',15)
+    'MarkerFaceColor',[0 .75 .75],'SizeData',5)
 axis tight
+
+xlabel('X, A.U.') 
+ylabel('Y, A.U.') 
+zlabel('Z, A.U.')
 end
 %% ========================================================================
 % function visual(X,U,P)
@@ -402,7 +453,8 @@ end
 % umax=sqrt(max(umax(:))); pmax=sqrt(max(pmax(:)));
 % % нормируем векторные поля с учётом размера ячейки
 % for i=1:3
-%     U{i}=(d/umax)*U{i}; 
+% %     U{i}=(d/umax)*U{i};
+%     U{i}=(d/umax)*U{i}*3; 
 %     P{i}=(3/4*d/pmax)*P{i}; 
 %     X1{i}=X{i}+U{i};
 % end
@@ -417,12 +469,12 @@ end
 %     G1(i)=line(x1{1}(:),x1{2}(:),x1{3}(:),'color',[0 0 1 0.5],'linewidth',1);
 % end
 % axis equal, hold on
-% % строим векторы поляризации
-% for i=1:3, XP{i}=[X1{i}(:) X1{i}(:)+P{i}(:)]'; end
-% line(XP{1},XP{2},XP{3},'color',[0.9 0.4 0.1],'linewidth',2.5)
-% scatter3(X1{1}(:),X1{2}(:),X1{3}(:),'MarkerEdgeColor','k',...
-%     'MarkerFaceColor',[0 .75 .75],'SizeData',35)
-% axis tight
+% % % строим векторы поляризации
+% % for i=1:3, XP{i}=[X1{i}(:) X1{i}(:)+P{i}(:)]'; end
+% % line(XP{1},XP{2},XP{3},'color',[0.9 0.4 0.1],'linewidth',2.5)
+% % scatter3(X1{1}(:),X1{2}(:),X1{3}(:),'MarkerEdgeColor','k',...
+% %     'MarkerFaceColor',[0 .75 .75],'SizeData',35)
+% % axis tight
 % end
 %% ========================================================================
 function visual_now(X,U,P)
@@ -461,7 +513,7 @@ axis equal, hold on
 for i=1:3, XU{i}=[X{i}(:) X{i}(:)+U{i}(:)]'; end
 line(XU{1},XU{2},XU{3},'color',[0.9 0.4 0.1],'linewidth',2.5)
 scatter3(X{1}(:),X{2}(:),X{3}(:),'MarkerEdgeColor','k',...
-    'MarkerFaceColor',[0 .75 .75],'SizeData', 15)
+    'MarkerFaceColor',[0 .75 .75],'SizeData', 3)
 
 % строим векторы поляризации
 subplot(2, 1, 2)
@@ -469,6 +521,6 @@ axis equal, hold on
 for i=1:3, XP{i}=[X1{i}(:) X1{i}(:)+P{i}(:)]'; end
 line(XP{1},XP{2},XP{3},'color',[0.9 0.4 0.1],'linewidth',2.5)
 scatter3(X1{1}(:),X1{2}(:),X1{3}(:),'MarkerEdgeColor','k',...
-    'MarkerFaceColor',[0 .75 .75],'SizeData',15)
+    'MarkerFaceColor',[0 .75 .75],'SizeData',3)
 axis tight
 end

@@ -1,15 +1,19 @@
 %%
+% figure
+% visual(X, U, P)
 %%
-function [X,U,P]=my_temp_v4_3
-N=2000;
+function [X,U,P]=my_temp_v4_5
+N=1000;
 % data = zeros(idivide(int16(N),int16(100)), 2);
 data = [];
+
+discret = 10;
 
 % перейдём в ангстремы
 global scale
 scale = 10^(-10);
 
-n=[100 12 2]; % размер решётки (n-1)
+n=[49 49 11]; % размер решётки (n-1)
 global A C Q G d % константы
 d=10^(-9); % шаг решётки
 d = d/scale;
@@ -17,7 +21,7 @@ A=[-3.712*10^(7) 6.079*10^(8) 1.303*10^(8)*40 1.294*10^(9) -1.950*10^(9) -2.5*10
 % A=[-3.712*10^(7) 6.079*10^(8) 1.303*10^(8) 1.294*10^(9) -1.950*10^(9) -2.5*10^(9) 3.863*10^(10) 2.529*10^(-10) 1.637*10^(-10) 1.367*10^(-10)]; % порядки!
 
 C=[27.5 17.9 5.43]*10^(9); 
-G=[51 0 100]*10^(-11)/scale^2*1;
+G=[51 0 20]*10^(-11)/scale^2*1;
 Q=[-6.236 -4.059 1.57]*10^(9)*0.9;
 % Q=[0.795 -1.222 1.57]*10^(9);
 % Q=[14.2 -0.74 1.57]*10^(9);
@@ -52,7 +56,7 @@ fix=false(size(X{1})); fix(:,:,1)=true;
 % ang=ang/180*pi;
 % part(find(tan(ang)*(X{1}+dri)>=X{2}))=true;
 % Стенка под углом со смещением по y
-dri=700;
+dri=0;
 part = false(size(X{1}));
 ang=45;
 ang=ang/180*pi;
@@ -77,14 +81,19 @@ P{2}(~part) = P{2}(~part)*0;
 % U{1}=ones(n+1)*d*linspace(-1, 1, n(3)+1)10^(-10);
 
 % Сделаем сдвиг на 0.2 через meshgrid (суммарный сдвиг)
-del = -5;
+del = -50;
 del = del/100;
-x_fix = linspace(-del*d/2, del*d/2, n(1)+1);
-y_fix = linspace(-del*d/2, del*d/2, n(2)+1);
+del_x = del;
+del_y = del*(n(2)+1)/(n(1)+1);
+x_fix = linspace(-del_x*d/2, del_x*d/2, n(1)+1);
+y_fix = linspace(-del_y*d/2, del_y*d/2, n(2)+1);
 [X_fix, Y_fix] = meshgrid(x_fix, y_fix);
-
-U{1}(fix)=(X_fix)';
-U{2}(fix)=(Y_fix)';
+for i=1:n(3)+1
+    U{1}(:, :, i)=(X_fix)';
+    U{2}(:, :, i)=(Y_fix)';
+end
+% U{1}(fix)=(X_fix)';
+% U{2}(fix)=(Y_fix)';
 % U{1}(fix)=0;
 % U{2}(fix)=0;
 U{3}(fix)=0;
@@ -103,9 +112,10 @@ F=energies(U,P);
 k0=0; 
 oo=0;
 % while true
-visual(X,U,P)
-drawnow
+% visual(X,U,P)
+% drawnow
 figure
+drawnow
 for i =1:N
         oo=oo+1;
         [GU,GP,gmax]=gradflow; % градиенты
@@ -130,16 +140,22 @@ for i =1:N
 %         GP{1}*mu
 %         GU{1}*mu
 %         mu
-        [F,U,P]=step_along(U,P,GU,GP,mu);
-        if mod(oo,100)==0 
-            data(idivide(int16(oo),int16(100)), 1) = oo;
-            data(idivide(int16(oo),int16(100)), 2) = F;
-%             disp(oo)
+%         [F,U,P]=step_along(U,P,GU,GP,mu);
+        
+        if mod(oo,discret)==0 
+            data(idivide(int16(oo),int16(discret)), 1) = oo;
+            data(idivide(int16(oo),int16(discret)), 2) = F;
+            disp(oo)
 %             cla
 %             visual_now(X,U,P)
 %             drawnow
-        end
+            [F,FL,FC,FQ,FG]=arr_energies(U,P);
+            visual_energy(X, F,FL,FC,FQ,FG, n(3)+1)
+            drawnow
+            save('data.mat','data', 'X', 'U', 'P', 'E', 'F','FL','FC','FQ','FG' );
 
+        end
+        [F,U,P]=step_along(U,P,GU,GP,mu);
 %         oo
         F
 %         GU{1}
@@ -175,6 +191,33 @@ ylabel('Y')
 legend
 end
 
+%%  ========================================================================
+function visual_energy(X, F, FC, FL, FQ, FG, layer)
+subplot(2, 2, 1)
+surf(X{1}(:, :, layer), X{2}(:, :, layer), FC(:, :, layer))
+xlabel('X') 
+ylabel('Y')
+title('FC')
+
+subplot(2, 2, 2)
+surf(X{1}(:, :, layer), X{2}(:, :, layer), FL(:, :, layer))
+xlabel('X') 
+ylabel('Y')
+title('FL')
+
+subplot(2, 2, 3)
+surf(X{1}(:, :, layer), X{2}(:, :, layer), FQ(:, :, layer))
+xlabel('X') 
+ylabel('Y')
+title('FQ')
+
+subplot(2, 2, 4)
+surf(X{1}(:, :, layer), X{2}(:, :, layer), FG(:, :, layer))
+xlabel('X') 
+ylabel('Y')
+title('FG')
+
+end
 %% ========================================================================
 function [F,U,P]=step_along(U,P,GU,GP,mu)
 % энергия после шага в направлении антиградиента: U -> (U - mu*dU)
@@ -340,90 +383,92 @@ D(ind1)=D(ind1)+2*T(ind0); D(ind2)=D(ind2)-2*T(ind0);
 end
 
 %% ========================================================================
-function visual(X,U,P)
-figure
-% визуализация решётки с деформациями и поляризацией
-dx=zeros(3,1); xmin=dx; X1=X; G=dx; G1=dx;
-d=X{1}(2,1,1)-X{1}(1,1,1); % шаг решётки
-for i=1:3, xmin(i)=min(X{i}(:)); dx(i)=max(X{i}(:))-xmin(i); end
-% % строим подложку
-% patch(xmin(1)+[-1 5 5 -1]/4*dx(1),xmin(2)+[-1 -1 5 5]/4*dx(2),[0 0 0 0],...
-%     'facecolor',0.9*[1 1 1])
-% находим максимальные смещения и поляризации
-umax=U{1}.^2+U{2}.^2+U{3}.^2; pmax=P{1}.^2+P{2}.^2+P{3}.^2;
-umax=sqrt(max(umax(:))); pmax=sqrt(max(pmax(:)));
-% нормируем векторные поля с учётом размера ячейки
-for i=1:3
-    X1{i}=X{i}+U{i};
-    U{i}=(d/umax)*U{i}; 
-    P{i}=(3/4*d/pmax)*P{i}; 
-%     X1{i}=X{i}+U{i};
-end
-
-% строим исходную и деформированную решётки
-subplot(2, 1, 1)
-axis equal, hold on
-% for i=1:3
-%     x=X; x1=X1; per=[i:3 1:i-1];
-%     for j=1:3
-%         x{j}=permute(x{j},per); x{j}(end+1,:,:)=NaN;
-%         x1{j}=permute(x1{j},per); x1{j}(end+1,:,:)=NaN;
-%     end
-%     G(i)=line(x{1}(:),x{2}(:),x{3}(:),'color',[1 0 0 0.2],'linewidth',0.1);
-%     G1(i)=line(x1{1}(:),x1{2}(:),x1{3}(:),'color',[0 0 1 0.5],'linewidth',1);
-% end
-
-% for i=1:3, XU{i}=[X{i}(:) X{i}(:)+U{i}(:)]'; end
-for i=1:3, XU{i}=[X{i}(:) X{i}(:)+U{i}(:)]'; end
-line(XU{1},XU{2},XU{3},'color',[0.9 0.4 0.1],'linewidth',2.5)
-scatter3(X{1}(:),X{2}(:),X{3}(:),'MarkerEdgeColor','k',...
-    'MarkerFaceColor',[0 .75 .75],'SizeData', 15)
-
-% строим векторы поляризации
-subplot(2, 1, 2)
-axis equal, hold on
-for i=1:3, XP{i}=[X1{i}(:) X1{i}(:)+P{i}(:)]'; end
-line(XP{1},XP{2},XP{3},'color',[0.9 0.4 0.1],'linewidth',2.5)
-scatter3(X1{1}(:),X1{2}(:),X1{3}(:),'MarkerEdgeColor','k',...
-    'MarkerFaceColor',[0 .75 .75],'SizeData',15)
-axis tight
-end
-%% ========================================================================
 % function visual(X,U,P)
+% figure
 % % визуализация решётки с деформациями и поляризацией
 % dx=zeros(3,1); xmin=dx; X1=X; G=dx; G1=dx;
 % d=X{1}(2,1,1)-X{1}(1,1,1); % шаг решётки
 % for i=1:3, xmin(i)=min(X{i}(:)); dx(i)=max(X{i}(:))-xmin(i); end
-% % строим подложку
-% patch(xmin(1)+[-1 5 5 -1]/4*dx(1),xmin(2)+[-1 -1 5 5]/4*dx(2),[0 0 0 0],...
-%     'facecolor',0.9*[1 1 1])
+% % % строим подложку
+% % patch(xmin(1)+[-1 5 5 -1]/4*dx(1),xmin(2)+[-1 -1 5 5]/4*dx(2),[0 0 0 0],...
+% %     'facecolor',0.9*[1 1 1])
 % % находим максимальные смещения и поляризации
 % umax=U{1}.^2+U{2}.^2+U{3}.^2; pmax=P{1}.^2+P{2}.^2+P{3}.^2;
 % umax=sqrt(max(umax(:))); pmax=sqrt(max(pmax(:)));
 % % нормируем векторные поля с учётом размера ячейки
 % for i=1:3
+%     X1{i}=X{i}+U{i};
 %     U{i}=(d/umax)*U{i}; 
 %     P{i}=(3/4*d/pmax)*P{i}; 
-%     X1{i}=X{i}+U{i};
+% %     X1{i}=X{i}+U{i};
 % end
+% 
 % % строим исходную и деформированную решётки
-% for i=1:3
-%     x=X; x1=X1; per=[i:3 1:i-1];
-%     for j=1:3
-%         x{j}=permute(x{j},per); x{j}(end+1,:,:)=NaN;
-%         x1{j}=permute(x1{j},per); x1{j}(end+1,:,:)=NaN;
-%     end
-%     G(i)=line(x{1}(:),x{2}(:),x{3}(:),'color',[1 0 0 0.2],'linewidth',0.1);
-%     G1(i)=line(x1{1}(:),x1{2}(:),x1{3}(:),'color',[0 0 1 0.5],'linewidth',1);
-% end
+% figure
+% % subplot(2, 1, 1)
 % axis equal, hold on
+% % for i=1:3
+% %     x=X; x1=X1; per=[i:3 1:i-1];
+% %     for j=1:3
+% %         x{j}=permute(x{j},per); x{j}(end+1,:,:)=NaN;
+% %         x1{j}=permute(x1{j},per); x1{j}(end+1,:,:)=NaN;
+% %     end
+% %     G(i)=line(x{1}(:),x{2}(:),x{3}(:),'color',[1 0 0 0.2],'linewidth',0.1);
+% %     G1(i)=line(x1{1}(:),x1{2}(:),x1{3}(:),'color',[0 0 1 0.5],'linewidth',1);
+% % end
+% 
+% % for i=1:3, XU{i}=[X{i}(:) X{i}(:)+U{i}(:)]'; end
+% for i=1:3, XU{i}=[X{i}(:) X{i}(:)+U{i}(:)]'; end
+% line(XU{1},XU{2},XU{3},'color',[0.9 0.4 0.1],'linewidth',2.5)
+% scatter3(X{1}(:),X{2}(:),X{3}(:),'MarkerEdgeColor','k',...
+%     'MarkerFaceColor',[0 .75 .75],'SizeData', 5)
+% figure
+% % строим векторы поляризации
+% % subplot(2, 1, 2)
+% axis equal, hold on
+% for i=1:3, XP{i}=[X1{i}(:) X1{i}(:)+P{i}(:)]'; end
+% line(XP{1},XP{2},XP{3},'color',[0.9 0.4 0.1],'linewidth',2.5)
+% scatter3(X1{1}(:),X1{2}(:),X1{3}(:),'MarkerEdgeColor','k',...
+%     'MarkerFaceColor',[0 .75 .75],'SizeData',5)
+% axis tight
+% end
+%% ========================================================================
+function visual(X,U,P)
+% визуализация решётки с деформациями и поляризацией
+dx=zeros(3,1); xmin=dx; X1=X; G=dx; G1=dx;
+d=X{1}(2,1,1)-X{1}(1,1,1); % шаг решётки
+for i=1:3, xmin(i)=min(X{i}(:)); dx(i)=max(X{i}(:))-xmin(i); end
+% строим подложку
+patch(xmin(1)+[-1 5 5 -1]/4*dx(1),xmin(2)+[-1 -1 5 5]/4*dx(2),[0 0 0 0],...
+    'facecolor',0.9*[1 1 1])
+% находим максимальные смещения и поляризации
+umax=U{1}.^2+U{2}.^2+U{3}.^2; pmax=P{1}.^2+P{2}.^2+P{3}.^2;
+umax=sqrt(max(umax(:))); pmax=sqrt(max(pmax(:)));
+% нормируем векторные поля с учётом размера ячейки
+for i=1:3
+%     U{i}=(d/umax)*U{i};
+    U{i}=(d/umax)*U{i}*1.5; 
+    P{i}=(3/4*d/pmax)*P{i}; 
+    X1{i}=X{i}+U{i};
+end
+% строим исходную и деформированную решётки
+for i=1:3
+    x=X; x1=X1; per=[i:3 1:i-1];
+    for j=1:3
+        x{j}=permute(x{j},per); x{j}(end+1,:,:)=NaN;
+        x1{j}=permute(x1{j},per); x1{j}(end+1,:,:)=NaN;
+    end
+    G(i)=line(x{1}(:),x{2}(:),x{3}(:),'color',[1 0 0 0.2],'linewidth',0.1);
+    G1(i)=line(x1{1}(:),x1{2}(:),x1{3}(:),'color',[0 0 1 0.5],'linewidth',1);
+end
+axis equal, hold on
 % % строим векторы поляризации
 % for i=1:3, XP{i}=[X1{i}(:) X1{i}(:)+P{i}(:)]'; end
 % line(XP{1},XP{2},XP{3},'color',[0.9 0.4 0.1],'linewidth',2.5)
 % scatter3(X1{1}(:),X1{2}(:),X1{3}(:),'MarkerEdgeColor','k',...
 %     'MarkerFaceColor',[0 .75 .75],'SizeData',35)
 % axis tight
-% end
+end
 %% ========================================================================
 function visual_now(X,U,P)
 % визуализация решётки с деформациями и поляризацией
@@ -461,7 +506,7 @@ axis equal, hold on
 for i=1:3, XU{i}=[X{i}(:) X{i}(:)+U{i}(:)]'; end
 line(XU{1},XU{2},XU{3},'color',[0.9 0.4 0.1],'linewidth',2.5)
 scatter3(X{1}(:),X{2}(:),X{3}(:),'MarkerEdgeColor','k',...
-    'MarkerFaceColor',[0 .75 .75],'SizeData', 15)
+    'MarkerFaceColor',[0 .75 .75],'SizeData', 3)
 
 % строим векторы поляризации
 subplot(2, 1, 2)
@@ -469,6 +514,6 @@ axis equal, hold on
 for i=1:3, XP{i}=[X1{i}(:) X1{i}(:)+P{i}(:)]'; end
 line(XP{1},XP{2},XP{3},'color',[0.9 0.4 0.1],'linewidth',2.5)
 scatter3(X1{1}(:),X1{2}(:),X1{3}(:),'MarkerEdgeColor','k',...
-    'MarkerFaceColor',[0 .75 .75],'SizeData',15)
+    'MarkerFaceColor',[0 .75 .75],'SizeData',3)
 axis tight
 end

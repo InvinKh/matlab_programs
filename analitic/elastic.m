@@ -1,11 +1,11 @@
 function [X,U,P]=elastic
-N=1000;
+N=5000;
 % data = zeros(idivide(int16(N),int16(100)), 2);
 data = [];
 global scale
 scale = 10^(-10)
 
-n=[10 10 5]; % размер решётки (n-1)
+n=[20 20 5]; % размер решётки (n-1)
 global C d % константы
 d=10^(-8); % шаг решётки
 d=d/scale
@@ -197,7 +197,12 @@ for i=1:3
     end
     G(i)=line(x{1}(:),x{2}(:),x{3}(:),'color',[1 0 0 0.2],'linewidth',0.1);
     G1(i)=line(x1{1}(:),x1{2}(:),x1{3}(:),'color',[0 0 1 0.5],'linewidth',1);
+    xlabel('-2\pi < x < 2\pi') 
+    ylabel('Sine and Cosine Values') 
 end
+xlabel('X, A.U.') 
+ylabel('Y, A.U.') 
+zlabel('Z, A.U.')
 end
 %% ========================================================================
 function [F,U]=step_along(U,GU,mu)
